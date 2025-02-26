@@ -1,110 +1,81 @@
 from dataclasses import dataclass
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from jaxtyping import Float, Int
 
 @dataclass
 class GPTConfig:
-	# default test values -- too small for a real language model, but big enough for testing
-	d_vocab: int = 10_000
-	d_model: int = 128
-	d_mlp: int = 512
-	n_heads: int = 4
-	d_head: int = 32
-	n_layers: int = 6
-	act_fn: type[nn.Module] = nn.ReLU
-
-	@property
-	def n_params(self) -> int:
-		"an estimate of the number of parameters"
-		return (
-			self.d_vocab * self.d_model # embeddings (and tied unembeddings)
-			+ (
-				self.d_model * self.d_mlp * 2 # mlp weights
-				+ self.d_model + self.d_mlp # mlp bias
-				+ self.n_heads * ( # number of heads
-					4 * self.d_model * self.d_head # 4 because Q, K, O, V
-				)
-			) * self.n_layers, # for each layer
-		)
-
-# note: the residual stream is `n_context` by `d_model`
-
-# this is the row-wise (last dimension) softmax of x
-# F.softmax(x, dim=-1)
+    d_vocab: int = 10_000
+    d_model: int = 128
+    d_mlp: int = 512
+    n_heads: int = 4
+    d_head: int = 32
+    n_layers: int = 6
+    act_fn: type[nn.Module] = nn.ReLU
 
 class AttentionHead(nn.Module):
-	
-	def __init__(self, cfg: GPTConfig):
-		super().__init__()
-		self.W_q = torch.nn.Parameter(torch.rand(cfg.d_model, cfg.d_head))
-		self.W_kT = torch.nn.Parameter(torch.rand(cfg.d_head, cfg.d_model))
-		self.W_o = torch.nn.Parameter(torch.rand(cfg.d_model, cfg.d_head))
-		self.W_vT = torch.nn.Parameter(torch.rand(cfg.d_head, cfg.d_model))
-	
-	def masking_matrix (self, n_context: Int) -> Float[torch.Tensor, "n_context n_context"]:
-		m = torch.full((n_context, n_context), -torch.inf)
-		return torch.triu(m, diagonal=1)
-
-	def forward(self, x: Int[torch.Tensor, "n_context d_model"]) -> Float[torch.Tensor, "n_context d_model"]:
-		# Compute attention pattern
-		pattern = x @ self.W_q @ self.W_kT @ x.T
-		pattern += self.masking_matrix(x.size()[0])
-		pattern = torch.nn.functional.softmax(pattern, dim=1) @ x @ self.W_o @ self.W_vT
-
-		return pattern
-
-# List of heads needs to be of nn.Module type 
+    def __init__(self, cfg: GPTConfig):
+        super().__init__()
+        # Xavier initialization for better scaling
+        self.W_q = nn.Parameter(torch.randn(cfg.d_model, cfg.d_head) * (1.0 / cfg.d_model ** 0.5))
+        self.W_k = nn.Parameter(torch.randn(cfg.d_model, cfg.d_head) * (1.0 / cfg.d_model ** 0.5))
+        self.W_v = nn.Parameter(torch.randn(cfg.d_model, cfg.d_head) * (1.0 / cfg.d_model ** 0.5))
+        self.W_o = nn.Parameter(torch.randn(cfg.d_head, cfg.d_model) * (1.0 / cfg.d_head ** 0.5))
+    
+    def masking_matrix(self, n_context: int) -> torch.Tensor:
+        m = torch.full((n_context, n_context), -torch.inf)
+        return torch.triu(m, diagonal=1)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size, n_context, d_model = x.shape
+        Q = x @ self.W_q  # [batch, n_context, d_head]
+        K = x @ self.W_k  # [batch, n_context, d_head]
+        V = x @ self.W_v  # [batch, n_context, d_head]
+        
+        scores = Q @ K.transpose(-2, -1) / (self.W_q.shape[-1] ** 0.5)  # [batch, n_context, n_context]
+        scores = scores + self.masking_matrix(n_context)
+        attn = F.softmax(scores, dim=-1)
+        out = attn @ V @ self.W_o  # [batch, n_context, d_model]
+        return out
 
 class MultiHeadedAttention(nn.Module):
-
-	def __init__(self, cfg: GPTConfig):
-		super().__init__()
-		self.head_list = nn.ModuleList([AttentionHead(cfg) for _ in range(cfg.n_heads)])
-
-	def forward(self, x: Int[torch.Tensor, "n_context d_model"]) -> Float[torch.Tensor, "n_context d_model"]:
-		output = x
-		for h in self.head_list:
-			output += h.forward(x)
-		return output
-
+    def __init__(self, cfg: GPTConfig):
+        super().__init__()
+        self.head_list = nn.ModuleList([AttentionHead(cfg) for _ in range(cfg.n_heads)])
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        output = x
+        for h in self.head_list:
+            output = output + h.forward(x)
+        return output
 
 class MLP(nn.Module):
+    def __init__(self, cfg: GPTConfig):
+        super().__init__()
+        self.W_m_down = nn.Parameter(torch.randn(cfg.d_model, cfg.d_mlp) * (1.0 / cfg.d_model ** 0.5))
+        self.W_m_up = nn.Parameter(torch.randn(cfg.d_mlp, cfg.d_model) * (1.0 / cfg.d_mlp ** 0.5))
+        self.B = nn.Parameter(torch.zeros(cfg.d_mlp))  # Bias initialized to zero
+        self.act_function = cfg.act_fn()
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_mlp = x @ self.W_m_down  # [batch, n_context, d_mlp]
+        x_mlp = self.act_function(x_mlp + self.B)
+        x_mlp = x_mlp @ self.W_m_up  # [batch, n_context, d_model]
+        return x + x_mlp
 
-	def __init__(self, cfg: GPTConfig):
-		super().__init__()
-		self.W_m_down = torch.nn.Parameter(torch.rand(cfg.d_model, cfg.d_mlp))
-		self.W_m_up = torch.nn.Parameter(torch.rand(cfg.d_mlp, cfg.d_model))
-		self.B = torch.nn.Parameter(torch.rand(cfg.d_mlp, 1))
-		self.act_function = cfg.act_fn()
-
-	def forward(self, x: Int[torch.Tensor, "n_context d_model"]) -> Float[torch.Tensor, "n_context d_model"]:
-		''' 
-		Instead of looping over each column to add B, make matrix of size (d_mlp, n_context) where
-		its columns correspond to the values of B
-		'''
-		B_matrix = self.B @ torch.full((1, x.shape[0]), 1.0)
-
-		x_out = (self.W_m_up @ x.T) + B_matrix
-		x_out = ((self.W_m_down @ self.act_function(x_out)).T) + x
-		
-		return x_out
-	
 class Transformer(nn.Module):
-
-	def __init__(self, cfg: GPTConfig):
-		super().__init__()
-		self.embedding = nn.Embedding(cfg.d_vocab, cfg.d_model)
-		self.MHA_layers = nn.ModuleList([MultiHeadedAttention(cfg) for _ in range(cfg.n_layers)])
-		self.MLP_layers = nn.ModuleList([MLP(cfg) for _ in range(cfg.n_layers)])
-		# Use nn.Embedding for the embedding, and CAN new linear layer OR use transpose for the unembedding
-		self.out_layer = nn.Linear(cfg.d_model, cfg.d_vocab)
-
-	def forward(self, x: Int[torch.Tensor, "n_context"]) -> Float[torch.Tensor, "n_context d_vocab"]:
-		X = self.embedding(x)
-		for MHA, MLP in zip(self.MHA_layers, self.MLP_layers):
-			X = MHA.forward(X)
-			X = MLP.forward(X)
-		return self.out_layer(X)
+    def __init__(self, cfg: GPTConfig):
+        super().__init__()
+        self.embedding = nn.Embedding(cfg.d_vocab, cfg.d_model)
+        nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)  # Better embedding init
+        self.MHA_layers = nn.ModuleList([MultiHeadedAttention(cfg) for _ in range(cfg.n_layers)])
+        self.MLP_layers = nn.ModuleList([MLP(cfg) for _ in range(cfg.n_layers)])
+        self.out_layer = nn.Linear(cfg.d_model, cfg.d_vocab)
+        nn.init.normal_(self.out_layer.weight, mean=0.0, std=0.02)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        X = self.embedding(x)
+        for MHA, MLP in zip(self.MHA_layers, self.MLP_layers):
+            X = MHA.forward(X)
+            X = MLP.forward(X)
+        return self.out_layer(X)

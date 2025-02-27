@@ -118,3 +118,5 @@ config = GPTConfig()
 model = Transformer(config)
 print(f"Model vocab size: {model.embedding.num_embeddings}")
 train_transformer(model, int_sequences)
+
+torch.save(model, "model.pt")

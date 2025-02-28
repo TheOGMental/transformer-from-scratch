@@ -9,17 +9,23 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class TextDataset(Dataset):
-    def __init__(self, sequences: list[list[int]], context_size: int):
+    def __init__(self, sequences: list[list[int]], max_length: int = None):
         self.data = []
         self.targets = []
-        self.context_size = context_size
         for sequence in sequences:
-            if len(sequence) <= context_size:
+            if len(sequence) <= 1:
                 continue
-            for i in range(len(sequence) - context_size):
-                self.data.append(sequence[i:i + context_size])
-                self.targets.append(sequence[i + 1:i + context_size + 1])
-    
+            
+            if max_length is not None and max_length > 0:
+                if len(sequence) > max_length:
+                    for sub_sequence in [sequence[i:i+max_length] for i in range(0, len(sequence), max_length)]:
+                        self.data.append(sub_sequence[:-1])
+                        self.targets.append(sub_sequence[1:])
+                    continue
+
+            self.data.append(sequence[:-1])
+            self.targets.append(sequence[1:])
+
     def __len__(self):
         return len(self.data)
     
@@ -30,14 +36,14 @@ class TextDataset(Dataset):
 def train_transformer(
     model: Transformer,
     int_sequences: list[list[int]],
-    context_size: int = 10,
+    max_sequence_length: int = 1000,
     batch_size: int = 32,
     num_epochs: int = 5,
     learning_rate: float = 0.001,
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 ):
     model = model.to(device)
-    dataset = TextDataset(int_sequences, context_size)
+    dataset = TextDataset(int_sequences, max_length=max_sequence_length)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -117,4 +123,4 @@ word_to_int["the"], int_sequences[0][:10]
 config = GPTConfig()
 model = Transformer(config)
 print(f"Model vocab size: {model.embedding.num_embeddings}")
-train_transformer(model, int_sequences)
+train_transformer(model, int_sequences, num_epochs=1, batch_size=1)

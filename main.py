@@ -1,4 +1,5 @@
 import importlib
+import matplotlib.pyplot as plt
 import T1000
 importlib.reload(T1000)  # Force reload of T1000
 from T1000 import *
@@ -47,6 +48,7 @@ def train_transformer(
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    batch_loss_values = []
     
     print(f"Training on {len(dataloader)} batches per epoch")
     
@@ -68,7 +70,8 @@ def train_transformer(
                 loss = criterion(single_output, single_target)
                 loss.backward()  # Accumulate gradients
                 batch_loss += loss.item()
-            
+            batch_loss_values.append(batch_loss)
+
             # Clip gradients and update weights once per batch
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
@@ -81,7 +84,8 @@ def train_transformer(
         
         avg_loss = total_loss / num_batches
         print(f"Epoch {epoch+1}/{num_epochs} completed. Average Loss: {avg_loss:.4f}")
-
+    
+    return batch_loss_values
 
 
 def create_word_to_int_mapping(texts: list[str], max_vocab_size: int = 10000) -> tuple[dict[str, int], list[list[int]]]:
@@ -123,5 +127,7 @@ word_to_int["the"], int_sequences[0][:10]
 config = GPTConfig()
 model = Transformer(config)
 print(f"Model vocab size: {model.embedding.num_embeddings}")
-train_transformer(model, int_sequences, num_epochs=1, batch_size=1)
+batch_losses = train_transformer(model, int_sequences, num_epochs=1, batch_size=1)
+plt.plot(batch_losses)
+plt.savefig("batch_loss_values.png")
 torch.save(model, "model.pt")

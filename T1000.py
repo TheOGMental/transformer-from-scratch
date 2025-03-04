@@ -23,7 +23,10 @@ class AttentionHead(nn.Module):
     
     def masking_matrix(self, n_context: int) -> torch.Tensor:
         m = torch.full((n_context, n_context), -torch.inf)
-        return torch.triu(m, diagonal=1)
+        if torch.cuda.is_available():
+            return torch.triu(m, diagonal=1).to("cuda")
+        else:
+            return torch.triu(m, diagonal=1)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         n_context, d_model = x.shape  # Expects [n_context, d_model], e.g., [10, 128]

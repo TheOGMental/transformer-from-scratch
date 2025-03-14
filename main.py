@@ -1,9 +1,10 @@
 import importlib
 import matplotlib.pyplot as plt
+import tiktoken
 import T1000
 importlib.reload(T1000)  # Force reload of T1000
 from T1000 import *
-from utility import get_gutenberg_book, get_many_books
+from utility import get_gutenberg_book, get_many_books, create_tokenizer
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -33,10 +34,13 @@ class TextDataset(Dataset):
     def __getitem__(self, idx):
         return (torch.tensor(self.data[idx], dtype=torch.long),
                 torch.tensor(self.targets[idx], dtype=torch.long))
+    
+    
 
 def train_transformer(
     model: Transformer,
-    int_sequences: list[list[int]],
+    #int_sequences: list[list[int]],
+    tokenizer: tiktoken.Encoding,
     max_sequence_length: int = 1000,
     batch_size: int = 32,
     num_epochs: int = 5,
@@ -114,17 +118,20 @@ def create_word_to_int_mapping(texts: list[str], max_vocab_size: int = 10000) ->
 DATA_RAW: list[str] = get_many_books([84, 15, 18, 82, 996, 2600])
 print(f"{sum(len(x) for x in DATA_RAW) = }")
 
-
+'''
 word_to_int, int_sequences = create_word_to_int_mapping(DATA_RAW, max_vocab_size=10000)
 max_token = max(max(seq) for seq in int_sequences if seq)
 print(f"Vocabulary size: {len(word_to_int)}")
 print(f"Max token value in int_sequences: {max_token}")
 if max_token >= 10000:
     raise ValueError(f"Max token {max_token} exceeds expected vocab size 10000")
-word_to_int["the"], int_sequences[0][:10]
+word_to_int["the"], int_sequences[0][:10]'
+'''
+tokenizer, d_vocab = create_tokenizer()
+int_sequences = [tokenizer.encode(text) for text in DATA_RAW]
 
 # Initialize and train
-config = GPTConfig()
+config = GPTConfig(d_vocab=d_vocab)
 model = Transformer(config)
 print(f"Model vocab size: {model.embedding.num_embeddings}")
 batch_losses = train_transformer(model, int_sequences, num_epochs=1, batch_size=1)

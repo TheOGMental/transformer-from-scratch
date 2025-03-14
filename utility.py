@@ -1,5 +1,6 @@
 from pathlib import Path
 import requests
+import tiktoken
 
 def get_gutenberg_book(
 	id: int|None = 84,
@@ -66,3 +67,18 @@ def create_word_to_int_mapping(texts: list[str]) -> tuple[dict[str, int], list[l
         int_sequences.append(int_sequence)
     
     return word_to_int, int_sequences
+
+def create_tokenizer(name: str = "cl100k_base") -> tuple[tiktoken.Encoding, int]:
+	"""
+	Selects a tokenizer based on the provided name.
+	
+	Args:
+		name (str): The name of the tokenizer to use.
+		
+	Returns:
+		Encoding: The tokenizer encoding object.
+		d_vocab: The size of the vocabulary for the tokenizer.
+	"""
+	enc = tiktoken.get_encoding(name)
+	vocab_size = enc.n_vocab
+	return enc, vocab_size

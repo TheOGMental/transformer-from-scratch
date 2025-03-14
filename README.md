@@ -13,21 +13,21 @@ This repository contains our group's implementation of a transformer model from 
 - Created the `llm-transcripts/` directory and uploaded his LLM chat log as `Griffin-Rutherford-LLM-Transcript.pdf` on March 14, 2025.
 - Ensured task alignment and test passage via Discord by March 14, 2025.
 
-#### Matthew Stanley (Triblades):
+#### Matthew Stanley:
 - Converted initial test notebooks into a robust unittest suite in `tests/test.py`, completed by February 26, 2025.
 - Configured GitHub Actions to automatically run tests on push requests, enhancing CI/CD, implemented by February 26, 2025.
 - Integrated the tiktoken tokenizer into `main.py` and `utility.py` for efficient text processing, completed by March 14, 2025.
 - Diagnosed numerical instability (e.g., NaN outputs) in early transformer runs, suggesting overflow fixes by February 26, 2025.
 - Collaborated on test refinements, ensuring all components passed after architectural changes, finalized by March 14, 2025.
 
-#### Gabriel Del Castillo (Melon):
+#### Gabriel Del Castillo:
 - Set up a GitHub webhook to notify the team of repository updates, completed by March 11, 2025.
 - Implemented the `.generate()` method in `T1000.py` for text generation from prompts, finalized by March 15, 2025.
 - Defined the project timeline, setting the deadline of March 16, 2025, and managed task discussions in class.
 - Contributed to planning remaining features (e.g., tokenization, embeddings) via Discord, completed by March 11, 2025.
 - Ensured team alignment on submission requirements, including LLM documentation, finalized by March 14, 2025.
 
-#### Alex Fruge (st0rm):
+#### Alex Fruge:
 - Shared the repository link with instructor Michael via email, ensuring visibility, completed by February 26, 2025.
 - Added positional embeddings to the Transformer class in `T1000.py`, enhancing sequence awareness, completed by March 15, 2025.
 - Validated test failures across environments, aiding early debugging efforts, noted by February 26, 2025.

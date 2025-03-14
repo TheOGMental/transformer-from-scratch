@@ -13,6 +13,18 @@ class GPTConfig:
     n_layers: int = 6
     act_fn: type[nn.Module] = nn.ReLU
 
+class RMSNorm(nn.Module):
+    def __init__(self, d_model: int, eps: float = 1e-6):
+        super().__init__()
+        self.d_model = d_model
+        self.eps = eps
+        self.scale = nn.Parameter(torch.ones(d_model))
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        rms = torch.sqrt((x ** 2).mean(dim=-1, keepdim=True) + self.eps)
+        norm_x = x / rms
+        return norm_x * self.scale
+
 class AttentionHead(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
@@ -29,14 +41,14 @@ class AttentionHead(nn.Module):
             return torch.triu(m, diagonal=1)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        n_context, d_model = x.shape  # Expects [n_context, d_model], e.g., [10, 128]
-        Q = x @ self.W_q  # [n_context, d_head], e.g., [10, 32]
-        K = x @ self.W_k  # [n_context, d_head]
-        V = x @ self.W_v  # [n_context, d_head]
-        scores = Q @ K.transpose(-2, -1) / (self.W_q.shape[-1] ** 0.5)  # [n_context, n_context], e.g., [10, 10]
+        n_context, d_model = x.shape
+        Q = x @ self.W_q
+        K = x @ self.W_k
+        V = x @ self.W_v
+        scores = Q @ K.transpose(-2, -1) / (self.W_q.shape[-1] ** 0.5)
         scores += self.masking_matrix(n_context)
-        attn = F.softmax(scores, dim=-1)  # [n_context, n_context]
-        out = attn @ V @ self.W_o  # [n_context, d_model], e.g., [10, 128]
+        attn = F.softmax(scores, dim=-1)
+        out = attn @ V @ self.W_o
         return out
 
 class MultiHeadedAttention(nn.Module):
@@ -45,10 +57,8 @@ class MultiHeadedAttention(nn.Module):
         self.head_list = nn.ModuleList([AttentionHead(cfg) for _ in range(cfg.n_heads)])
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        output = x  # [n_context, d_model]
-        for h in self.head_list:
-            output = output + h.forward(x)  # Residual connection
-        return output
+        attn_output = sum(h.forward(x) for h in self.head_list)
+        return attn_output
 
 class MLP(nn.Module):
     def __init__(self, cfg: GPTConfig):
@@ -59,10 +69,10 @@ class MLP(nn.Module):
         self.act_function = cfg.act_fn()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x_mlp = x @ self.W_m_down  # [n_context, d_mlp]
+        x_mlp = x @ self.W_m_down
         x_mlp = self.act_function(x_mlp + self.B)
-        x_mlp = x_mlp @ self.W_m_up  # [n_context, d_model]
-        return x + x_mlp
+        x_mlp = x_mlp @ self.W_m_up
+        return x_mlp
 
 class Transformer(nn.Module):
     def __init__(self, cfg: GPTConfig):
@@ -71,12 +81,20 @@ class Transformer(nn.Module):
         nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)
         self.MHA_layers = nn.ModuleList([MultiHeadedAttention(cfg) for _ in range(cfg.n_layers)])
         self.MLP_layers = nn.ModuleList([MLP(cfg) for _ in range(cfg.n_layers)])
+        self.attn_norms = nn.ModuleList([RMSNorm(cfg.d_model) for _ in range(cfg.n_layers)])
+        self.mlp_norms = nn.ModuleList([RMSNorm(cfg.d_model) for _ in range(cfg.n_layers)])
+        self.final_norm = RMSNorm(cfg.d_model)
         self.out_layer = nn.Linear(cfg.d_model, cfg.d_vocab)
         nn.init.normal_(self.out_layer.weight, mean=0.0, std=0.02)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        X = self.embedding(x)  # [n_context] -> [n_context, d_model]
-        for MHA, MLP in zip(self.MHA_layers, self.MLP_layers):
-            X = MHA.forward(X)
-            X = MLP.forward(X)
-        return self.out_layer(X)  # [n_context, d_vocab]
+        X = self.embedding(x)
+        for i in range(len(self.MHA_layers)):
+            attn_input = self.attn_norms[i](X)
+            attn_output = self.MHA_layers[i](attn_input)
+            X = X + attn_output
+            mlp_input = self.mlp_norms[i](X)
+            mlp_output = self.MLP_layers[i](mlp_input)
+            X = X + mlp_output
+        X = self.final_norm(X)
+        return self.out_layer(X)

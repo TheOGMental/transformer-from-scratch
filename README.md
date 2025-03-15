@@ -34,7 +34,7 @@ This repository contains our group's implementation of a transformer model from 
 - Contributed to the training setup in `main.py`, ensuring compatibility with the updated model, finalized by March 14, 2025.
 - Supported team communication by confirming task feasibility (e.g., embeddings timeline), completed by March 14, 2025.
 
-### LLM Contributions (Grok 3 by xAI)
+### LLM Contributions (Grok 3 by xAI) - Griffin Rutherford
 
 #### Assisted Team Members:
 - Provided detailed code and explanations for RMSNorm implementation, used from March 12–14, 2025.
@@ -47,6 +47,18 @@ This repository contains our group's implementation of a transformer model from 
 - *Most Useful*: Code generation and normalization theory.
 - *Least Useful*: Required human verification for test-specific fixes.
 - *Transcript*: `llm-transcripts/Griffin-Rutherford-LLM-Transcript.pdf`.
+
+### LLM Contributions (Claude Sonnet 3.7 by Anthropic) - Alex Fruge
+
+#### Assisted Team Members:
+- Provided background on positional embeddings, why they are important, and how they work.
+- Created rough process for how to implement positional embeddings into current code.
+- Verified that implementation of positional embeddings held logically and correct math was used.
+
+**Usage Details:**
+- *Most Useful*: Code generation and explaining positional embeddings; fixed misconceptions I had
+- *Least Useful*: Nothing of note
+- *Transcript* `https://claude.ai/share/869a90b9-b3ab-40cb-ad76-cd56a6b98735`
 
 ## Project Structure
 

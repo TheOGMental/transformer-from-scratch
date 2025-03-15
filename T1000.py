@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 @dataclass
 class GPTConfig:
@@ -24,6 +25,29 @@ class RMSNorm(nn.Module):
         rms = torch.sqrt((x ** 2).mean(dim=-1, keepdim=True) + self.eps)
         norm_x = x / rms
         return norm_x * self.scale
+    
+class SinusoidalPositionalEmbedding(nn.Module):
+    def __init__(self, d_model: int, max_seq_len: int = 5000):
+        super().__init__()
+        self.d_model = d_model
+        
+        # Create constant positional encoding matrix
+        pe = torch.zeros(max_seq_len, d_model)
+        position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-9.21 / d_model)) # 9.21 = log(10000)
+        
+        # Apply sine to even indices
+        pe[:, 0::2] = torch.sin(position * div_term)
+        # Apply cosine to odd indices
+        pe[:, 1::2] = torch.cos(position * div_term)
+        
+        # Register as buffer (not a parameter)
+        self.register_buffer('pe', pe)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape: [seq_len, d_model] or [batch_size, seq_len, d_model]
+        seq_len = x.size(-2)
+        return self.pe[:seq_len, :]
 
 class AttentionHead(nn.Module):
     def __init__(self, cfg: GPTConfig):
@@ -78,6 +102,7 @@ class Transformer(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
         self.embedding = nn.Embedding(cfg.d_vocab, cfg.d_model)
+        self.pos_embedding = SinusoidalPositionalEmbedding(cfg.d_model)
         nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)
         self.MHA_layers = nn.ModuleList([MultiHeadedAttention(cfg) for _ in range(cfg.n_layers)])
         self.MLP_layers = nn.ModuleList([MLP(cfg) for _ in range(cfg.n_layers)])
@@ -89,6 +114,7 @@ class Transformer(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         X = self.embedding(x)
+        X = X + self.pos_embedding(X)
         for i in range(len(self.MHA_layers)):
             attn_input = self.attn_norms[i](X)
             attn_output = self.MHA_layers[i](attn_input)

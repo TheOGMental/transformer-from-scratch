@@ -23,6 +23,7 @@ This repository contains our group's implementation of a transformer model from 
 #### Gabriel Del Castillo:
 - Set up a GitHub webhook to notify the team of repository updates, completed by March 11, 2025.
 - Implemented the `.generate()` method in `T1000.py` for text generation from prompts, finalized by March 16, 2025.
+- Added tokenizer save function to `Transformer` class in `T1000.py`, to save tokenizer from training and use it in `.generate()` function.
 - Defined the project timeline, setting the deadline of March 16, 2025, and managed task discussions in class.
 - Contributed to planning remaining features (e.g., tokenization, embeddings) via Discord, completed by March 11, 2025.
 - Ensured team alignment on submission requirements, including LLM documentation, finalized by March 14, 2025.
@@ -59,6 +60,18 @@ This repository contains our group's implementation of a transformer model from 
 - *Most Useful*: Code generation and explaining positional embeddings; fixed misconceptions I had
 - *Least Useful*: Nothing of note
 - *Transcript* `https://claude.ai/share/869a90b9-b3ab-40cb-ad76-cd56a6b98735`
+
+### LLM Contributions (GPT-4-turbo by OpenAI) - Gabriel Del Castillo
+
+#### Assisted Team Members:
+- Provided insight on implementation of `.generate()` function.
+- Helped with debugging of issues, as well as finding root cause of ValueErrors, IndexErrors, etc.
+- Verified that final text generation held true in context of model's training data size and parameter count.
+
+**Usage Details:**
+- *Most Useful*: Code generation and debugging. Helped with reasoning through problems I encountered, and explained the source of non-error problems (such as using random sampling for decoding vs. picking next-most-likely token).
+- *Least Useful*: Nothing in particular.
+- *Transcript* `https://chatgpt.com/share/67d7b082-82f8-8008-8b77-4475dee1ca91`
 
 ## Project Structure
 

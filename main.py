@@ -133,6 +133,7 @@ int_sequences = [tokenizer.encode(text) for text in DATA_RAW]
 # Initialize and train
 config = GPTConfig(d_vocab=d_vocab)
 model = Transformer(config)
+model.save_tokenizer(tokenizer)
 print(f"Model vocab size: {model.embedding.num_embeddings}")
 batch_losses = train_transformer(model, int_sequences, num_epochs=1, batch_size=1)
 plt.plot(batch_losses)

@@ -1,4 +1,5 @@
 from T1000 import *
+from utility import create_tokenizer
 
 import torch
 import unittest
@@ -46,3 +47,13 @@ class TestT1000(unittest.TestCase):
         self.assertFalse(torch.isnan(output).any())
         self.assertFalse(torch.isinf(output).any())
 
+    def test_generate(self):
+        '''Test that model generates a total of test_max_tokens when given prompt'''
+        model_file = "model.pt"
+        model = torch.load(model_file, weights_only=False)
+        model.eval()
+        test_input = "How much wood could a woodchuck chuck if a woodchuck could chuck wood?"
+        test_max_tokens = 50
+
+        # May sometimes randomly break in the first run or two?
+        self.assertTrue(len(model.generate(test_input, test_max_tokens).split()) == 50)

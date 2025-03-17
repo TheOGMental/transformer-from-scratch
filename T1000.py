@@ -65,6 +65,8 @@ class AttentionHead(nn.Module):
             return torch.triu(m, diagonal=1)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 3:
+            x = x.squeeze(0)
         n_context, d_model = x.shape
         Q = x @ self.W_q
         K = x @ self.W_k
@@ -124,3 +126,25 @@ class Transformer(nn.Module):
             X = X + mlp_output
         X = self.final_norm(X)
         return self.out_layer(X)
+    
+    # Need to save training tokenizer for later usage in generate function of model
+    def save_tokenizer(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def generate(self, text: str, max_new_tokens: int):
+        self.eval()
+
+        int_indexes = self.tokenizer.encode(text)
+        gen_tokens = torch.tensor([int_indexes], dtype=torch.long)
+
+        for _ in range(max_new_tokens):
+            with torch.no_grad():
+                gen_tokens = gen_tokens.to(torch.long)
+                next_token_logits = self.forward(gen_tokens)[:, -1, :]
+
+                # Random sampling of token instead of most likely one to prevent repetition
+                next_token = torch.multinomial(torch.nn.functional.softmax(next_token_logits, dim=-1), num_samples=1)
+                
+                gen_tokens = torch.cat((gen_tokens, next_token), dim=1)
+
+        return self.tokenizer.decode(gen_tokens[0].tolist())

@@ -22,7 +22,7 @@ This repository contains our group's implementation of a transformer model from 
 
 #### Gabriel Del Castillo:
 - Set up a GitHub webhook to notify the team of repository updates, completed by March 11, 2025.
-- Implemented the `.generate()` method in `T1000.py` for text generation from prompts, finalized by March 15, 2025.
+- Implemented the `.generate()` method in `T1000.py` for text generation from prompts, finalized by March 16, 2025.
 - Defined the project timeline, setting the deadline of March 16, 2025, and managed task discussions in class.
 - Contributed to planning remaining features (e.g., tokenization, embeddings) via Discord, completed by March 11, 2025.
 - Ensured team alignment on submission requirements, including LLM documentation, finalized by March 14, 2025.
